@@ -1,4 +1,4 @@
-# Codes for Matsuda *et al.* 2026
+# Codes for Matsuda *et al.* 
 
 In this repository you find codes used in Matsuda *et al.*
 Genomic signatures implicated in neuromodulation in a recently domesticated songbird.
@@ -34,4 +34,4 @@ Genomic signatures implicated in neuromodulation in a recently domesticated song
 
 ## Publication
 
-*submitted*
+*under review*
