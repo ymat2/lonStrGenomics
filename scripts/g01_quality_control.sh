@@ -4,6 +4,7 @@
 #SBATCH -e /dev/null
 
 
+# raw_data=./raw_data
 raw_data=~/raw_data/songbird2
 
 samples=($(ls ${raw_data} | sort -V))
@@ -12,7 +13,7 @@ sample=${samples[$SLURM_ARRAY_TASK_ID-1]}
 shopt -s expand_aliases
 alias fastp="apptainer exec /usr/local/biotools/f/fastp:0.23.4--h5f740d0_0 fastp"
 
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 
 [ ! -e uncleaned/${sample} ] && mkdir -p uncleaned/${sample}

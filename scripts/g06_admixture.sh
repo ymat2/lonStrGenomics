@@ -8,7 +8,7 @@
 shopt -s expand_aliases
 alias admixture="apptainer exec /usr/local/biotools/a/admixture:1.3.0--0 admixture"
 
-workdir=~/vocal-learning/structure
+workdir=~/lonchura/structure
 bed=lonchura.snp.bed
 
 [ ! -e ${workdir} ] && mkdir ${workdir}

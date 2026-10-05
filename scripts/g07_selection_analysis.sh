@@ -6,14 +6,16 @@
 shopt -s expand_aliases
 alias bcftools="apptainer exec /usr/local/biotools/b/bcftools:1.18--h8b25389_0 bcftools"
 alias vcftools="apptainer exec /usr/local/biotools/v/vcftools:0.1.16--h9a82719_5 vcftools"
+alias bedtools="apptainer exec /usr/local/biotools/b/bedtools:2.31.0--h468198e_0 bedtools"
 
-proj=~/vocal-learning
+proj=~/lonchura
 vcf=${proj}/vcf/lonchura.snp.vcf.gz
 
 workdir=${proj}/selection
 [ ! -e ${workdir} ] && mkdir -p ${workdir}
 cd ${workdir}
 
+# bcftools query -l ${vcf} | grep -E 'SBM' > sbm.txt
 bcftools query -l ${vcf} | grep -E 'WRM' > wrm.txt
 bcftools query -l ${vcf} | grep -v -E 'SBM|WRM' > bf.txt
 
@@ -21,6 +23,9 @@ bcftools query -l ${vcf} | grep -v -E 'SBM|WRM' > bf.txt
 ##### Pi #####
 
 [ ! -e ${workdir}/pi ] && mkdir ${workdir}/pi
+
+#vcftools --gzvcf ${vcf} --keep sbm.txt \
+#  --window-pi 10000 --window-pi-step 5000 --out ${workdir}/pi/sbm
 
 vcftools --gzvcf ${vcf} --keep wrm.txt \
   --window-pi 10000 --window-pi-step 5000 --out ${workdir}/pi/wrm
@@ -33,6 +38,7 @@ vcftools --gzvcf ${vcf} --keep bf.txt \
 
 [ ! -e ${workdir}/tajimasD ] && mkdir ${workdir}/tajimasD
 
+#vcftools --gzvcf ${vcf} --keep sbm.txt --TajimaD 10000 --out ${workdir}/tajimasD/sbm
 vcftools --gzvcf ${vcf} --keep wrm.txt --TajimaD 10000 --out ${workdir}/tajimasD/wrm
 vcftools --gzvcf ${vcf} --keep bf.txt --TajimaD 10000 --out ${workdir}/tajimasD/bf
 
@@ -43,6 +49,12 @@ vcftools --gzvcf ${vcf} --keep bf.txt --TajimaD 10000 --out ${workdir}/tajimasD/
 
 vcftools --gzvcf ${vcf} --weir-fst-pop bf.txt --weir-fst-pop wrm.txt \
   --fst-window-size 10000 --fst-window-step 5000 --out ${workdir}/fst/bf_vs_wrm
+
+#vcftools --gzvcf ${vcf} --weir-fst-pop wrm.txt --weir-fst-pop sbm.txt \
+#  --fst-window-size 10000 --fst-window-step 5000 --out ${workdir}/fst/wrm_vs_sbm
+
+#vcftools --gzvcf ${vcf} --weir-fst-pop sbm.txt --weir-fst-pop bf.txt \
+#  --fst-window-size 10000 --fst-window-step 5000 --out ${workdir}/fst/sbm_vs_bf
 
 
 ##### DAF #####

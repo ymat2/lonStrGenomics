@@ -1,6 +1,7 @@
 library(conflicted)
 library(tidyverse)
 library(readxl)
+library(clusterProfiler)
 source("./rstats/annot.R")
 
 
@@ -35,13 +36,13 @@ summary = readr::read_tsv("out/mapping_summary.tsv") |>
   dplyr::arrange(Sample)
 
 sample_info |>
-  dplyr::mutate(subpop = stringr::str_remove(sample_id, "[0-9]+$")) |>
+  dplyr::mutate(subpop = stringr::str_remove(sample, "[0-9]+$")) |>
   dplyr::group_by(subpop, sex) |>
   dplyr::summarise(N = dplyr::n()) |>
   tidyr::pivot_wider(names_from = sex, values_from = N, values_fill = 0)
 
 summary |>
-  dplyr::group_by(species) |>
+  dplyr::group_by(Species) |>
   dplyr::summarise(across(where(is.numeric), mean)) |>
   print()
 
@@ -114,6 +115,10 @@ readr::write_csv(pi005_genes, "docs/tables/pi005_genes.csv")
 
 ## RNA-seq ---------------------------------------------------------------------
 
+munia_all_genes = readr::read_tsv("out/lonStrDom2_gene_list.tsv") |>
+  tidyr::drop_na(Symbol) |>
+  dplyr::distinct(Symbol, `Gene ID`)
+
 degs = readr::read_tsv("out/diencephalon_stringtie_TCC.tsv") |>
   dplyr::mutate(m.value = -m.value) |>
   dplyr::mutate(upregulated_in = dplyr::case_when(
@@ -126,6 +131,30 @@ degs = readr::read_tsv("out/diencephalon_stringtie_TCC.tsv") |>
   dplyr::select(symbol, a.value, m.value, p.value, q.value, upregulated_in)
 
 
+## KEGG ------------------------------------------------------------------------
+
+degs4kegg = degs |> dplyr::left_join(munia_all_genes, by = dplyr::join_by(symbol == Symbol), relationship = "many-to-many")
+
+deg_ekegg = clusterProfiler::enrichKEGG(
+  degs4kegg |> dplyr::pull(`Gene ID`) |> unique(),
+  organism = "lsr",
+  keyType = "ncbi-geneid",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  minGSSize = 10,
+  maxGSSize = 500,
+  qvalueCutoff = 1
+)
+
+kegg_result = deg_ekegg@result |> 
+  tidyr::separate_rows(geneID, sep = "/", convert = TRUE) |>
+  dplyr::left_join(munia_all_genes, by = dplyr::join_by(geneID == `Gene ID`)) |>
+  dplyr::select(!geneID) |>
+  dplyr::group_by(dplyr::across(-Symbol)) |>
+  dplyr::summarise(Symbol = stringr::str_c(Symbol, collapse = ","), .groups = "drop_last") |>
+  dplyr::arrange(qvalue)
+
+
 ## Write excel ---\\\-----------------------------------------------------------
 
 writexl::write_xlsx(
@@ -133,7 +162,8 @@ writexl::write_xlsx(
     "DataS1" = summary, 
     "DataS2" = fst01, 
     "DataS3" = pi005_genes,
-    "DataS4" = degs
+    "DataS4" = degs,
+    "DataS5" = kegg_result
     ),
   path = "docs/manuscripts/supplementary_data.xlsx",
   format_headers = FALSE

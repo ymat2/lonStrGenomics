@@ -9,7 +9,7 @@ sample_20231227 = readxl::read_excel("サンプル情報/231227_DNA-EN_サンプ
   dplyr::select(sample_id, sex, species)
 
 sample_20240828 = readxl::read_excel("docs/20240828_DNA送付/20240828_麻布大_サンプルリスト.xlsx", sheet = "DNA_sample_list") |>
-  dplyr::rename(sample_id = ID, species = `種`) |> 
+  dplyr::rename(sample_id = ID, species = `種`) |>
   dplyr::mutate(sex = dplyr::case_when(
     `性別` %in% c("F", "M") ~ `性別`,
     is.na(`性別`) ~ stringr::str_extract(`麻布大学 PCRの性判定`, "F|M"),

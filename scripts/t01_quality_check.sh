@@ -3,7 +3,7 @@
 #SBATCH --mem 16G
 
 
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 raw_data=${proj}/raw_data/rnaseq
 

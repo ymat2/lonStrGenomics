@@ -3,7 +3,7 @@
 #SBATCH -e /dev/null
 
 
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 
 /usr/bin/python3 src/summary_qc_result.py -i out/qc_rna

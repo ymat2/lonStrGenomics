@@ -7,7 +7,7 @@ shopt -s expand_aliases
 alias bcftools="apptainer exec /usr/local/biotools/b/bcftools:1.18--h8b25389_0 bcftools"
 alias vcftools="apptainer exec /usr/local/biotools/v/vcftools:0.1.16--h9a82719_5 vcftools"
 
-proj=~/vocal-learning
+proj=~/lonchura
 vcf=${proj}/vcf/lonchura.snp.vcf.gz
 
 workdir=${proj}/selection/fst_supple

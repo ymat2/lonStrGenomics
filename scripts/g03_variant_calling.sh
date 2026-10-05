@@ -9,10 +9,11 @@ shopt -s expand_aliases
 alias bcftools="apptainer exec /usr/local/biotools/b/bcftools:1.18--h8b25389_0 bcftools"
 
 reference=~/ref/lonStrDom2/GCF_005870125.1.fa
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 
 samples=($(ls bam | sort -V))
+#samples=($(ls ~/raw_data/songbird2 | sort -V))
 sample=${samples[$SLURM_ARRAY_TASK_ID-1]}
 
 bcftools mpileup -f ${reference} bam/${sample}/${sample}.cfsm.bam --max-depth 500 --no-BAQ | \

@@ -12,6 +12,7 @@ degs = readr::read_tsv("out/diencephalon_stringtie_TCC.tsv") |>
     q.value < 0.05 & m.value > 1 ~ "BF",
     .default = "N"
   )) |>
+  dplyr::mutate(estimatedDEG = forcats::fct_rev(estimatedDEG)) |>
   dplyr::mutate(logP = -log10(p.value)) |>
   dplyr::mutate(symbol = stringr::str_split(gene_id, "\\|", simplify = TRUE)[,2]) |>
   dplyr::left_join(tpm, by = "gene_id")
@@ -56,8 +57,8 @@ vol = degs |>
   ) +
   geom_point(data = degs_goi, color = "#333333", shape = 1) +
   scale_color_manual(
-    values = c("BF" = colBF, "N" = "#CCCCCC", "WRM" = colWRM),
-    labels = c("BF" = "Higher expression in BF,", "N" = "Not significant,", "WRM" = "Higher expression in WRM")
+    values = c("WRM" = colWRM, "N" = "#CCCCCC", "BF" = colBF),
+    labels = c("WRM" = "Higher expression in WRM,", "N" = "Not significant,", "BF" = "Higher expression in BF")
     ) +
   labs(
     x = expression(paste(log[2], " Fold Change")), 

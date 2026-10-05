@@ -6,7 +6,7 @@ shopt -s expand_aliases
 alias bcftools="apptainer exec /usr/local/biotools/b/bcftools:1.18--h8b25389_0 bcftools"
 alias plink2="apptainer exec /usr/local/biotools/p/plink2:2.00a5--h4ac6f70_0 plink2"
 
-proj=~/vocal-learning
+proj=~/lonchura
 workdir=${proj}/structure
 vcf=${proj}/vcf/lonchura.snp.vcf.gz
 prefix=lonchura

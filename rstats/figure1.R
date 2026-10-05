@@ -1,7 +1,6 @@
 library(conflicted)
 library(tidyverse)
 library(cowplot)
-
 source("./rstats/common_settings.R")
 
 
@@ -10,16 +9,16 @@ source("./rstats/common_settings.R")
 wrm_photo = cowplot::ggdraw() +
   cowplot::draw_image("photos/wrm.nobg.png", scale = .95, valign = .25) +
   #ggplot2::annotate(geom = "text", x = .2, y = .9, label = "●", size = .size, hjust = 1.5, color = "#5ab4ac") +
-  ggplot2::annotate(geom = "text", x = .5, y = .9, label = "White-rumped munia\n(WRM; Wild)", size = BASESIZE, size.unit = "pt", hjust = .5) +
+  ggplot2::annotate(geom = "text", x = .5, y = .75, label = "White-rumped munia\n(WRM; Wild)", size = BASESIZE, size.unit = "pt", hjust = .5) +
   theme_void()
 
 bf_photo = cowplot::ggdraw() +
   cowplot::draw_image("photos/bf.nobg.png", scale = .95, valign = .25) +
   #ggplot2::annotate(geom = "text", x = .2, y = .9, label = "●", size = .size, hjust = 1.5, color = "#d8b365") +
-  ggplot2::annotate(geom = "text", x = .5, y = .9, label = "Bengalese finch\n(BF; Domesticated)", size = BASESIZE, size.unit = "pt", hjust = .5) +
+  ggplot2::annotate(geom = "text", x = .5, y = .75, label = "Bengalese finch\n(BF; Domesticated)", size = BASESIZE, size.unit = "pt", hjust = .5) +
   theme_void()
 
-photos = cowplot::plot_grid(wrm_photo, bf_photo, ncol = 2, labels = c("a", ""), label_size = LABELSIZE, scale = .95)
+photos = cowplot::plot_grid(wrm_photo, bf_photo, ncol = 2)
 
 
 ## PCA -------------------------------------------------------------------------
@@ -34,18 +33,19 @@ eigenval = readr::read_csv("out/pca/lonchura.snp.pca.eigenval", col_names = "V1"
 df = data.frame(pc = 1:nrow(eigenval), eigenval/sum(eigenval)*100)
 
 pca12 = ggplot(eigenvec) +
-  aes(PC1, PC2, color = group) +
-  geom_point(shape = 16, size = 2) +
-  scale_color_manual(values = colors) +
+  aes(PC1, PC2) +
+  geom_point(aes(fill = group), color = "#FFFFFF", shape = 21, size = 2) +
+  scale_fill_manual(values = colors) +
   labs(
     x = paste0("PC1 (", round(df[1,2], digits = 2), "%)"),
     y = paste0("PC2 (", round(df[2,2], digits = 2), "%)")
   ) +
   theme_test(base_size = BASESIZE) +
   theme(
-    legend.position = "inside",
+    legend.position = "top",
     legend.title = element_blank(),
-    legend.justification = c(.01, .99),
+    legend.text = element_text(size = BASESIZE, margin = margin(l = 0)),
+    legend.box.spacing = margin(t = 0, b = 0),
     axis.text = element_text(size = BASESIZE)
   )
 pca12
@@ -159,22 +159,16 @@ violin_pi = wind_pi |>
     outlier.alpha = .5,
     outlier.shape = 16,
     outlier.size = 1
-    ) +
-  ggplot2::annotate(
-    "text",
-    x = 1.5,
-    y = .03,
-    label = as.character(expression(paste(italic(P), "< 2.2 × ", 10^{-16}))),
-    parse = TRUE,
-    size = BASESIZE,
-    size.unit = "pt"
-    ) +
-  ggplot2::annotate("text", x = 1.5, y = .003, label = ">", size = 5) +
+  ) +
   scale_fill_manual(values = colors) +
-  ylab(expression(paste("Nucleotide diversity (", {pi}, ")" , sep = ""))) +
+  labs(
+    subtitle = expression(paste("WRM > BF, ", italic(P), "< 2.2 × ", 10^{-16})),
+    y = "Nucleotide diversity"
+  ) +
   theme_test(base_size = BASESIZE) +
   theme(
     legend.position = "none",
+    plot.subtitle = element_text(hjust = .5, size = BASESIZE),
     axis.title.x = element_blank(),
     axis.text = element_text(size = BASESIZE)
   )
@@ -215,24 +209,62 @@ violin_D = wind_D |>
     outlier.shape = 16,
     outlier.size = 1
   ) +
-  ggplot2::annotate(
-    "text",
-    x = 1.5,
-    y = 4,
-    label = as.character(expression(paste(italic(P), "< 2.2 × ", 10^{-16}))),
-    parse = TRUE,
-    size = BASESIZE,
-    size.unit = "pt"
-  ) +
   scale_fill_manual(values = colors) +
-  ylab(expression(paste("Tajima's ", italic(D) , sep = ""))) +
+  labs(
+    subtitle = expression(paste("WRM < BF, ", italic(P), "< 2.2 × ", 10^{-16})),
+    y = expression(paste("Tajima's ", italic(D) , sep = ""))
+  ) +
   theme_test(base_size = BASESIZE) +
   theme(
     legend.position = "none",
+    plot.subtitle = element_text(hjust = .5, size = BASESIZE),
     axis.title.x = element_blank(),
     axis.text = element_text(size = BASESIZE)
   )
 violin_D
+
+
+## fastsimcoal2 ----------------------------------------------------------------
+
+bestlhoods = dplyr::tibble()
+for (.f in list.files("out/fastsimcoal2/runs", pattern = "*.bestlhoods")) {
+  .f = readr::read_tsv(stringr::str_c("out/fastsimcoal2/runs/", .f)) |>
+    dplyr::mutate(deltalhood = abs(MaxEstLhood - MaxObsLhood))
+  bestlhoods = dplyr::bind_rows(bestlhoods, .f)
+}
+pointest = bestlhoods |> dplyr::slice_min(order_by = deltalhood, n = 1)
+
+grey_ = "#cccccc"
+fsc2 = ggplot() +
+  geom_hline(yintercept = c(50, 250), linetype = "dashed") +
+  annotate("polygon", x = c(3.5, 6.5, 7, 3), y = c(0, 0, 50, 50), fill = grey_) +
+  annotate("polygon", x = c(12.5, 17.5, 17, 13), y = c(0, 0, 50, 50), fill = grey_) +
+  annotate("polygon", x = c(3, 7, 7, 3), y = c(50, 50, 250, 250), fill = grey_) +
+  annotate("polygon", x = c(13, 17, 17, 13), y = c(50, 50, 250, 250), fill = grey_) +
+  annotate("polygon", x = c(5, 15, 15, 5), y = c(250, 250, 300, 300), fill = grey_) +
+  annotate("segment", x = 5, xend = 15, y = 90, yend = 90, color = "#333333", arrow = arrow(length = unit(0.05, "inches"))) +
+  annotate("text", x = 10, y = 90, label = expression(1.90 %*% 10^{-3}), vjust = 1.2, size = BASESIZE, size.unit = "pt") +
+  annotate("segment", x = 15, xend = 5, y = 110, yend = 110, color = "#333333", arrow = arrow(length = unit(0.05, "inches"))) +
+  annotate("text", x = 10, y = 110, label = expression(4.02 %*% 10^{-6}), vjust = -0.2, size = BASESIZE, size.unit = "pt") +
+  annotate("text", x = 5, y = 10, label = deparse(bquote(italic(N)[WRM] == .(pointest$NPOP1))), vjust = 0, parse = TRUE, size = BASESIZE, size.unit = "pt") +
+  annotate("text", x = 5, y = 150, label = deparse(bquote(italic(N)[AncWRM] == .(pointest$NANC1))), vjust = 0, parse = TRUE, size = BASESIZE, size.unit = "pt") +
+  annotate("text", x = 15, y = 10, label = deparse(bquote(italic(N)[BF] == .(pointest$NPOP2))), vjust = 0, parse = TRUE, size = BASESIZE, size.unit = "pt") +
+  annotate("text", x = 15, y = 150, label = deparse(bquote(italic(N)[AncBF] == .(pointest$NANC2))), vjust = 0, parse = TRUE, size = BASESIZE, size.unit = "pt") +
+  scale_x_continuous(expand = expansion(mult = .1)) +
+  scale_y_continuous(
+    breaks = c(50, 250),
+    labels = c(50, bquote(italic(T)[split] == .(pointest$TDIV))),
+    expand = expansion(mult = 0)
+  ) +
+  labs(y = "Generations before present") +
+  theme_classic(base_size = BASESIZE) +
+  theme(
+    axis.line.x = element_blank(),
+    axis.title.y = element_text(size = BASESIZE),
+    axis.text.x = element_blank(),
+    axis.text.y = element_text(size = BASESIZE),
+    axis.ticks = element_blank()
+  )
 
 
 ## Heterozygosity --------------------------------------------------------------
@@ -273,7 +305,7 @@ hetF = het |>
     axis.title.x = element_blank(),
     axis.ticks.x = element_blank(),
     axis.line.x = element_blank(),
-    axis.title = element_text(size = BASESIZE),
+    axis.title.y = element_text(size = BASESIZE),
     axis.text = element_text(size = BASESIZE)
   )
 
@@ -309,19 +341,15 @@ hetM = het |>
     axis.text.x = element_text(size = BASESIZE)
   )
 
-phet = cowplot::plot_grid(hetF, hetM)
-phet
-
 
 ## Align plots -----------------------------------------------------------------
 
-# First align fig.c and fig.d by explicit call to align_plots().
-cd = cowplot::align_plots(padm2, padm3, bar, violin_pi, align = "v", axis = "l")
+padm = cowplot::plot_grid(padm2, padm3, bar, nrow = 3, rel_heights = c(2, 2, 1))
+ab = cowplot::plot_grid(photos, padm, nrow = 1, rel_widths = c(2, 3), labels = c("a", "b"), scale = .95, label_size = LABELSIZE)
+cde = cowplot::plot_grid(pca12, violin_pi, violin_D, nrow = 1, align = "h", axis = "tb", scale = .95, labels = c("c", "d", "e"), label_size = LABELSIZE)
+fg_align = cowplot::align_plots(fsc2, hetF, hetM, align = "h", axis = "tb")
+phet = cowplot::plot_grid(fg_align[[2]], fg_align[[3]])
+fg = cowplot::plot_grid(fg_align[[1]], phet, nrow = 1, scale = .95, labels = c("f", "g"), label_size = LABELSIZE)
 
-padm = cowplot::plot_grid(cd[[1]], cd[[2]], cd[[3]], nrow = 3, rel_heights = c(2, 2, 1))
-de = cowplot::plot_grid(cd[[4]], violin_D, ncol = 2, labels = c("d", "e"), label_size = LABELSIZE)
-acde = cowplot::plot_grid(photos, padm, de, nrow = 3, rel_heights = c(3, 3, 4), labels = c("", "c", ""), label_size = LABELSIZE, align = "v", axis = "lr", scale = .97)
-bf = cowplot::plot_grid(pca12, phet, nrow = 2, rel_heights = c(3, 2), labels = c("b", "f"), label_size = LABELSIZE, scale = .97)
-p = cowplot::plot_grid(acde, bf, ncol = 2, rel_widths = c(3, 2))
-
-ggsave("images/figure1.png", p, w = 183, h = 120, units = "mm", bg = "#FFFFFF")
+p = cowplot::plot_grid(ab, cde, fg, ncol = 1, rel_heights = c(2, 3, 3))
+ggsave("images/figure1.png", p, w = 183, h = 160, units = "mm", bg = "#FFFFFF")

@@ -5,7 +5,7 @@
 shopt -s expand_aliases
 alias plink="apptainer exec /usr/local/biotools/p/plink2:2.00a5--h4ac6f70_0 plink2"
 
-workdir=~/vocal-learning/structure
+workdir=~/lonchura/structure
 prefix=lonchura.snp
 
 [ ! -e ${workdir} ] && mkdir ${workdir}

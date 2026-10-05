@@ -6,7 +6,7 @@
 shopt -s expand_aliases
 alias bcftools="apptainer exec /usr/local/biotools/b/bcftools:1.18--h8b25389_0 bcftools"
 
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 
 poppy summary -i bam -o out/flag_summary.tsv --mode flag

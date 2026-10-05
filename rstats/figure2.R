@@ -10,7 +10,7 @@ acc2chr= readr::read_tsv("out/sequence_report.tsv") |>
 
 chr_levels = c("1", "1A", "2", "3", "4", "4A", as.character(seq(5,15)), 
                as.character(seq(17,29)), "Z", "MT")
-chr_labels = c(1, "1A", 2, 3, 4, "4A", 5:10, 12, 14, 17, 20, 29, "Z")
+chr_labels = c(1, "1A", 2, 3, 4, "4A", 5:10, 12, 14, 18, 20, 24, 29, "Z")
 chr_colors = c("#666666", "#BBBBBB")
 
 
@@ -38,6 +38,14 @@ df4axis = fst |>
   dplyr::group_by(chr) |>
   dplyr::summarize(center = mean(bp4axis)) |>
   dplyr::mutate(chr = dplyr::if_else(chr %in% chr_labels, as.character(chr), ""))
+
+fst |>
+  dplyr::select(CHROM, chr, BIN_START, BIN_END, Z_FST, bp4axis) |>
+  dplyr::slice_max(order_by = Z_FST, prop = .001) |>
+  annot(seqnames = "CHROM", start = "BIN_START", end = "BIN_END") |>
+  tidyr::drop_na(gene) |>
+  dplyr::distinct(chr) |>
+  nrow()
 
 top10peaks = fst |>
   dplyr::select(CHROM, chr, BIN_START, BIN_END, Z_FST, bp4axis) |>
@@ -69,7 +77,7 @@ pfst = ggplot(fst) +
   geom_point() +  # size  =.5
   geom_text(
     data = top10peaks,
-    aes(y = Z_FST + .5, label = gene), 
+    aes(y = Z_FST + .75, label = gene), 
     fontface = "italic", 
     color = "#333333", 
     size = BASESIZE - 1, 
@@ -257,49 +265,44 @@ pi = cowplot::ggdraw() +
 pi
 
 
-## Tajima's D ------------------------------------------------------------------
-
-bf_tD = readr::read_tsv("out/tajimasD/bf.Tajima.D") |>
-  dplyr::rename(BF = TajimaD) |>
-  dplyr::select(!N_SNPS)
-wrm_tD = readr::read_tsv("out/tajimasD/wrm.Tajima.D") |>
-  dplyr::rename(WRM = TajimaD) |>
-  dplyr::select(!N_SNPS)
-tD = bf_tD |>
-  dplyr::inner_join(wrm_tD, by = c("CHROM", "BIN_START")) |>
-  dplyr::left_join(acc2chr, by = "CHROM") |>
-  dplyr::mutate(chr = forcats::fct_inorder(chr), BIN_START = BIN_START + 1, BIN_END = BIN_START + 10000) |>
-  dplyr::filter(!chr %in% c("Un", "MT"))
-
-
 ## Chr. 4A ---------------------------------------------------------------------
 
 .chr4a_start = 19500000
 .chr4a_end = 19860000
 
+### FST -----
+
 fst_chr4a = fst |>
-  dplyr::filter(chr == "4A" & BIN_START >= .chr4a_start & BIN_START <= .chr4a_end) |>
+  dplyr::filter(chr == "4A" & BIN_END >= .chr4a_start & BIN_START <= .chr4a_end) |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2, y = Z_FST) +
-  #geom_rect(aes(xmin = 19710001, xmax = 19725000, ymin = -Inf, ymax = Inf), fill = "#eeeeee") +
+  aes(x = (BIN_START+BIN_END)/2, y = Z_FST) +
+  #geom_vline(xintercept = c(19710001, 19725000)) +
+  geom_hline(yintercept = quantile(fst$Z_FST, .999), linetype = "dashed") +
   geom_line() +
-  scale_x_continuous(limits = c(.chr4a_start, .chr4a_end), expand = expansion(mult = c(0, 0))) +
-  labs(title = "Chromosome 4A") +
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr4a_start, .chr4a_end),
+    expand = expansion(mult = 0)
+  ) +
+  labs(y = expression(paste("Z", italic(F)[ST]))) +
   theme_classic(base_size = BASESIZE) +
   theme(
-    axis.title = element_blank(),
+    axis.title.x = element_blank(),
     axis.text.x = element_blank(),
-    axis.text.y = element_text(size = BASESIZE),
-    axis.ticks.x = element_blank()
+    axis.ticks.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = BASESIZE)
   )
 fst_chr4a
+
+### PI -----
 
 pi_chr4a = pi_ratio |>
   dplyr::filter(chr == "4A" & BIN_START >= .chr4a_start & BIN_START <= .chr4a_end) |>
   tidyr::pivot_longer(c("BF", "WRM"), names_to = "species", values_to = "PI") |>
   ggplot() +
   aes(x = (BIN_START + BIN_END)/2, y = log10(PI)) +
-  #geom_rect(aes(xmin = 19710001, xmax = 19725000, ymin = -Inf, ymax = Inf), fill = "#eeeeee") +
+  #geom_vline(xintercept = c(19710001, 19725000)) +
   geom_line(aes(color = species), linewidth = .5) +
   scale_x_continuous(limits = c(.chr4a_start, .chr4a_end), expand = expansion(mult = c(0, 0))) +
   scale_color_manual(values = colors) +
@@ -309,102 +312,157 @@ pi_chr4a = pi_ratio |>
     axis.text.x = element_blank(),
     axis.text.y = element_text(size = BASESIZE),
     axis.ticks.x = element_blank(),
-    legend.title = element_blank(),
-    legend.justification = c(1, .5),
-    legend.background = element_rect(fill = "NA"),
-    legend.key = element_rect(fill = "NA")
+    legend.position = "none",
+    #legend.title = element_blank(),
+    #legend.justification = c(1, .5),
+    #legend.background = element_rect(fill = "NA"),
+    #legend.key = element_rect(fill = "NA")
   ) +
   guides(color = guide_legend(nrow = 2))
 pi_chr4a
 
-tD_chr4a = tD |>
-  dplyr::filter(chr == "4A" & BIN_START >= .chr4a_start & BIN_START <= .chr4a_end) |>
-  tidyr::pivot_longer(c("BF", "WRM"), names_to = "species", values_to = "TajimasD") |>
+### DXY -----
+
+dxy_chr4a = readr::read_tsv("out/dxy/NC_042570.1_19M_20M_dxy.txt") |>
+  tidyr::drop_na(avg_dxy) |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2, y = TajimasD) +
-  geom_line(aes(color = species)) +
-  labs(y = expression(paste("Tajima's ", italic(D)))) +
-  scale_x_continuous(limits = c(.chr4a_start, .chr4a_end), expand = expansion(mult = c(0, 0))) +
-  scale_color_manual(values = colors) +
+  aes(x = (window_pos_1+window_pos_2)/2, y = avg_dxy) +
+  #geom_vline(xintercept = c(19710001, 19725000)) +
+  geom_line() +
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr4a_start, .chr4a_end),
+    expand = expansion(mult = 0)
+  ) +
+  labs(y = expression(italic(D)[XY])) +
   theme_classic(base_size = BASESIZE) +
   theme(
     axis.title.x = element_blank(),
     axis.text.x = element_blank(),
-    axis.text.y = element_text(size = BASESIZE),
     axis.ticks.x = element_blank(),
-    legend.position = "none"
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = BASESIZE)
   )
-tD_chr4a
+dxy_chr4a
 
-genes4a = lonStrDom2_gene_list |>
-  dplyr::left_join(acc2chr, by = dplyr::join_by(Accession == CHROM)) |>
-  dplyr::filter(chr == "4A" & Begin >= .chr4a_start & Begin <= .chr4a_end) |>
-  dplyr::filter(stringr::str_detect(Symbol, "^LOC", negate = TRUE)) |>
-  dplyr::mutate(vj = c(2.5, 2.5))
+### DAF -----
 
-gene_chr4a = fst |>
-  dplyr::filter(chr == "4A" & BIN_START >= .chr4a_start & BIN_START <= .chr4a_end) |>
+daf_chr4a = readr::read_tsv("out/daf/bf_vs_wrm.chr4a.daf") |>
+  dplyr::mutate(BF_DAF = dplyr::if_else(
+    POP2_ALT <= POP2_REF, 
+    POP1_ALT / (POP1_ALT + POP1_REF), 
+    POP1_REF / (POP1_ALT + POP1_REF)
+  )) |>
+  dplyr::mutate(WRM_DAF = dplyr::if_else(
+    POP2_ALT <= POP2_REF, 
+    POP2_ALT / (POP2_ALT + POP2_REF), 
+    POP2_REF / (POP2_ALT + POP2_REF)
+  )) |>  
+  dplyr::mutate(DAF = abs(BF_DAF - WRM_DAF)) |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2) +
-  geom_segment(data = genes4a, aes(x = Begin, xend = End), y = .2, linewidth = 2, color = "#08519c") +
-  geom_point(data = genes4a, aes(x = (Begin+End)/2, shape = Orientation), y = .2, size = 3, color = "#FFFFFF") +
-  geom_text(data = genes4a, aes(x = (Begin+End)/2, label = Symbol, vjust = vj), y = .2, 
-            size = BASESIZE-1, size.unit = "pt", fontface = "italic") +
+  aes(x = POS) +
+  #geom_vline(xintercept = c(19710001, 19725000)) +
+  geom_point(aes(y = BF_DAF), color = colBF) +
+  geom_point(aes(y = WRM_DAF), color = colWRM) +
   scale_x_continuous(
     labels = scales::label_number(scale = 1/1000000, suffix = "M"),
     limits = c(.chr4a_start, .chr4a_end),
-    expand = expansion(mult = c(0, 0))
-  ) +
-  scale_y_continuous(limits = c(.1, .3)) +
-  scale_shape_manual(values = c("plus" = 62, "minus" = 60)) +
+    expand = expansion(mult = 0)
+  ) + 
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(y = "Derived AF") +
   theme_classic(base_size = BASESIZE) +
   theme(
-    plot.title = element_text(size = BASESIZE),
-    legend.position = "none",
-    axis.line.y = element_blank(),
-    axis.title = element_blank(),
-    axis.text.x = element_text(size = BASESIZE),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.y = element_blank(),
+    axis.text.y = element_text(size = BASESIZE)
+  )
+daf_chr4a
+
+### Genes -----
+
+cols = c("seqid", "source", "type", "start", "end", "score", "strand", "phase", "attribute")
+gff_chr4a = readr::read_tsv("out/lonStrDom2_chr4a_genomic.gff", comment = "##", col_names = cols) |>
+  dplyr::mutate(gene = stringr::str_extract(attribute, "(?<=gene=)[^;]+")) |>
+  dplyr::mutate(gene = dplyr::if_else(stringr::str_detect(gene, "^LOC"), "", gene)) |>
+  dplyr::filter(start >= .chr4a_start & end <= .chr4a_end)
+
+genes_chr4a = gff_chr4a |> dplyr::filter(type == "gene")
+exons_chr4a = gff_chr4a |> dplyr::filter(type == "exon")
+
+gene_chr4a = ggplot(genes_chr4a) +
+  aes(y = 1) +
+  #geom_vline(xintercept = c(19710001, 19725000)) +
+  geom_segment(data = genes_chr4a, aes(x = start, xend = end, y = 1, yend = 1), linewidth = 1, color = "#9B9477") +
+  geom_segment(data = exons_chr4a, aes(x = start, xend = end, y = 1, yend = 1), linewidth = 3, color = "#9B9477") +
+  geom_text(aes(x = (start + end)/2, label = gene), fontface = "italic", vjust = 2, size = BASESIZE-1, size.unit = "pt") +
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr4a_start, .chr4a_end),
+    expand = expansion(mult = 0)
+  ) +
+  labs(x = "Chromosome 4A") +
+  theme_classic(base_size = BASESIZE) +
+  theme(
+    axis.title.y = element_blank(),
     axis.text.y = element_blank(),
-    axis.ticks.y = element_blank()
+    axis.ticks.y = element_blank(),
+    axis.line.y = element_blank(),
+    axis.title.x = element_text(size = BASESIZE),
+    axis.text.x = element_text(size = BASESIZE)
   )
 gene_chr4a
 
-p4a = cowplot::plot_grid(fst_chr4a, pi_chr4a, gene_chr4a, ncol = 1, align = "v", axis = "lr")
+p4a = cowplot::plot_grid(
+  fst_chr4a, pi_chr4a, dxy_chr4a, daf_chr4a, gene_chr4a, 
+  ncol = 1, rel_heights = c(2, 2, 2, 2, 3), align = "v", axis = "lr"
+)
+p4a
 
 
 ## Chr. 8 ----------------------------------------------------------------------
 
 .chr8_start = 30840000
+.chr8_end = 30981424
+
+### FST -----
 
 fst_chr8 = fst |>
   dplyr::filter(chr == 8 & BIN_START >= .chr8_start) |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2, y = Z_FST) +
-  #geom_rect(aes(xmin = 30940001, xmax = 30955000, ymin = -Inf, ymax = Inf), fill = "#eeeeee") +
+  aes(x = (BIN_START+BIN_END)/2, y = Z_FST) +
+  #geom_vline(xintercept = c(30940001, 30955000)) +
+  geom_hline(yintercept = quantile(fst$Z_FST, .999), linetype = "dashed") +
   geom_line() +
-  scale_x_continuous(limits = c(.chr8_start, NA), expand = expansion(mult = c(0, .05))) +
-  labs(
-    y = expression(paste("Z", italic(F)[ST])),
-    title = "Chromosome 8"
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr8_start, .chr8_end),
+    expand = expansion(mult = c(0, .05))
   ) +
+  labs(y = expression(paste("Z", italic(F)[ST]))) +
   theme_classic(base_size = BASESIZE) +
   theme(
     axis.title.x = element_blank(),
     axis.text.x = element_blank(),
-    axis.text.y = element_text(size = BASESIZE),
-    axis.ticks.x = element_blank()
+    axis.ticks.x = element_blank(),
+    axis.title.y = element_text(size = BASESIZE),
+    axis.text.y = element_text(size = BASESIZE)
   )
 fst_chr8
+
+### PI -----
 
 pi_chr8 = pi_ratio |>
   dplyr::filter(chr == 8 & BIN_START >= .chr8_start) |>
   tidyr::pivot_longer(c("BF", "WRM"), names_to = "species", values_to = "PI") |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2, y = log10(PI)) +
-  #geom_rect(aes(xmin = 30940001, xmax = 30955000, ymin = -Inf, ymax = Inf), fill = "#eeeeee") +
+  aes(x = (BIN_START+BIN_END)/2, y = log10(PI)) +
+  #geom_vline(xintercept = c(30940001, 30955000)) +
   geom_line(aes(color = species), linewidth = .5) +
   labs(y = expression(paste(log[10], " ", pi))) +
-  scale_x_continuous(limits = c(.chr8_start, NA), expand = expansion(mult = c(0, .05))) +
+  scale_x_continuous(limits = c(.chr8_start, .chr8_end), expand = expansion(mult = c(0, .05))) +
   scale_color_manual(values = colors) +
   theme_classic(base_size = BASESIZE) +
   theme(
@@ -416,71 +474,116 @@ pi_chr8 = pi_ratio |>
   )
 pi_chr8
 
-tD_chr8 = tD |>
-  dplyr::filter(chr == 8 & BIN_START >= .chr8_start) |>
-  tidyr::pivot_longer(c("BF", "WRM"), names_to = "species", values_to = "TajimasD") |>
-  ggplot() +
-  aes(x = (BIN_START + BIN_END)/2, y = TajimasD) +
-  geom_line(aes(color = species)) +
-  #labs(y = expression(paste("Tajima's ", italic(D)))) +
-  scale_x_continuous(limits = c(.chr8_start, NA), expand = expansion(mult = c(0, .05))) +
-  scale_color_manual(values = colors) +
-  theme_classic(base_size = BASESIZE) +
-  theme(
-    axis.title = element_blank(),
-    axis.text.x = element_blank(),
-    axis.text.y = element_text(size = BASESIZE),
-    axis.ticks.x = element_blank(),
-    legend.position = "none"
-  )
-tD_chr8
+### DXY -----
 
-genes8 = lonStrDom2_gene_list |>
-  dplyr::left_join(acc2chr, by = dplyr::join_by(Accession == CHROM)) |>
-  dplyr::filter(chr ==8 & Begin >= .chr8_start) |>
-  dplyr::filter(stringr::str_detect(Symbol, "^LOC", negate = TRUE)) |>
-  dplyr::mutate(vj = c(2.5, -1.5, 2.5, -1.5, 2.5))
-
-gene_chr8 = fst |>
-  dplyr::filter(chr == 8 & BIN_START >= .chr8_start) |>
+dxy_chr8 = readr::read_tsv("out/dxy/NC_042574.1_30M_last_dxy.txt") |>
+  tidyr::drop_na(avg_dxy) |>
   ggplot() +
-  aes(x = (BIN_START + BIN_END)/2) +
-  geom_segment(data = genes8, aes(x = Begin, xend = End), y = .2, linewidth = 2, color = "#08519c") +
-  geom_point(data = genes8, aes(x = (Begin+End)/2, shape = Orientation), y = .2, size = 3, color = "#FFFFFF") +
-  geom_text(data = genes8, aes(x = (Begin+End)/2, label = Symbol, vjust = vj), y = .2, 
-            size = BASESIZE-1, size.unit = "pt", fontface = "italic") +
+  aes(x = (window_pos_1+window_pos_2)/2, y = avg_dxy) +
+  #geom_vline(xintercept = c(30940001, 30955000)) +
+  geom_line() +
   scale_x_continuous(
     labels = scales::label_number(scale = 1/1000000, suffix = "M"),
-    limits = c(.chr8_start, NA),
+    limits = c(.chr8_start, .chr8_end),
     expand = expansion(mult = c(0, .05))
   ) +
-  scale_y_continuous(limits = c(.1, .3)) +
-  scale_shape_manual(values = c("plus" = 62, "minus" = 60)) +
-  labs(y = "Genes") +
+  labs(y = expression(italic(D)[XY])) +
   theme_classic(base_size = BASESIZE) +
   theme(
-    plot.title = element_text(size = BASESIZE),
-    legend.position = "none",
-    axis.line.y = element_blank(),
     axis.title.x = element_blank(),
-    axis.text.x = element_text(size = BASESIZE),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.y = element_text(size = BASESIZE),
+    axis.text.y = element_text(size = BASESIZE)
+  )
+dxy_chr8
+
+### DAF -----
+
+daf_chr8 = readr::read_tsv("out/daf/bf_vs_wrm.chr8.daf") |>
+  dplyr::mutate(BF_DAF = dplyr::if_else(
+    POP2_ALT <= POP2_REF, 
+    POP1_ALT / (POP1_ALT + POP1_REF), 
+    POP1_REF / (POP1_ALT + POP1_REF)
+  )) |>
+  dplyr::mutate(WRM_DAF = dplyr::if_else(
+    POP2_ALT <= POP2_REF, 
+    POP2_ALT / (POP2_ALT + POP2_REF), 
+    POP2_REF / (POP2_ALT + POP2_REF)
+  )) |>  
+  dplyr::mutate(DAF2 = abs(BF_DAF - WRM_DAF)) |>
+  ggplot() +
+  aes(x = POS) +
+  #geom_vline(xintercept = c(30940001, 30955000)) +
+  geom_point(aes(y = BF_DAF), color = colBF) +
+  geom_point(aes(y = WRM_DAF), color = colWRM) +
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr8_start, .chr8_end),
+    expand = expansion(mult = c(0, .05))
+  ) + 
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(y = "Derived AF") +
+  theme_classic(base_size = BASESIZE) +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.title.y = element_text(size = BASESIZE),
+    axis.text.y = element_text(size = BASESIZE)
+  )
+daf_chr8
+
+### Genes -----
+
+cols = c("seqid", "source", "type", "start", "end", "score", "strand", "phase", "attribute")
+gff_chr8 = readr::read_tsv("out/lonStrDom2_chr8_genomic.gff", comment = "##", col_names = cols) |>
+  dplyr::mutate(gene = stringr::str_extract(attribute, "(?<=gene=)[^;]+")) |>
+  dplyr::mutate(gene = dplyr::if_else(stringr::str_detect(gene, "^LOC"), "", gene)) |>
+  dplyr::filter(start >= .chr8_start)
+
+genes_chr8 = gff_chr8 |> dplyr::filter(type == "gene")
+exons_chr8 = gff_chr8 |> dplyr::filter(type == "exon")
+
+gene_chr8 = ggplot(genes_chr8) +
+  aes(y = 1) +
+  #geom_vline(xintercept = c(30940001, 30955000)) +
+  geom_segment(aes(x = start, xend = end, y = 1, yend = 1), linewidth = 1, color = "#9B9477") +
+  geom_segment(data = exons_chr8, aes(x = start, xend = end, y = 1, yend = 1), linewidth = 3, color = "#9B9477") +
+  geom_text(aes(x = (start + end)/2, label = gene, vjust = c(2, -1, 2, -1, 2, 2)), fontface = "italic", size = BASESIZE-1, size.unit = "pt") +
+  scale_x_continuous(
+    labels = scales::label_number(scale = 1/1000000, suffix = "M"),
+    limits = c(.chr8_start, .chr8_end),
+    expand = expansion(mult = c(0, .05))
+  ) +
+  labs(x = "Chromosome 8") +
+  theme_classic(base_size = BASESIZE) +
+  theme(
+    axis.title.y = element_blank(),
     axis.text.y = element_blank(),
-    axis.ticks.y = element_blank()
+    axis.ticks.y = element_blank(),
+    axis.line.y = element_blank(),
+    axis.title.x = element_text(size = BASESIZE),
+    axis.text.x = element_text(size = BASESIZE)
   )
 gene_chr8
 
-p8 = cowplot::plot_grid(fst_chr8, pi_chr8, gene_chr8, ncol = 1, align = "v", axis = "lr")
+p8 = cowplot::plot_grid(
+  fst_chr8, pi_chr8, dxy_chr8, daf_chr8, gene_chr8, 
+  ncol = 1, rel_heights = c(2, 2, 2, 2, 3), align = "v", axis = "lr"
+)
+p8
 
 
 ## Align plots -----------------------------------------------------------------
 
-cd = cowplot::plot_grid(p8, p4a, ncol = 2, labels = c("c", "d"), label_size = LABELSIZE, scale = .95, rel_widths = c(4, 5))
-abcd = cowplot::plot_grid(pfst, pi, cd, labels = c("a", "b", ""), label_size = LABELSIZE, nrow = 3, rel_heights = c(5, 4, 6))
+cd = cowplot::plot_grid(p8, p4a, ncol = 2, labels = c("c", "d"), label_size = LABELSIZE, scale = .95)
+abcd = cowplot::plot_grid(pfst, pi, cd, labels = c("a", "b", ""), label_size = LABELSIZE, nrow = 3, rel_heights = c(2, 2, 5))
 p = cowplot::ggdraw() +
   cowplot::draw_plot(abcd) +
-  cowplot::draw_line(x = c(.09, .31, .31), y = c(.52, .38, .15), linetype = "dashed", linewidth = .2) +
-  cowplot::draw_line(x = c(.15, .35, .35), y = c(.52, .38, .15), linetype = "dashed", linewidth = .2) +
-  cowplot::draw_line(x = c(.86, .72, .72), y = c(.52, .38, .15), linetype = "dashed", linewidth = .2) +
-  cowplot::draw_line(x = c(.91, .74, .74), y = c(.52, .38, .15), linetype = "dashed", linewidth = .2)
-ggsave("images/figure2.png", p, w = 183, h = 150, units = "mm", bg = "#FFFFFF")
+  cowplot::draw_line(x = c(.09, .35, .35), y = c(.65, .53, .17), linetype = "dashed", linewidth = .2) +
+  cowplot::draw_line(x = c(.15, .39, .39), y = c(.65, .53, .17), linetype = "dashed", linewidth = .2) +
+  cowplot::draw_line(x = c(.86, .805, .805), y = c(.65, .53, .17), linetype = "dashed", linewidth = .2) +
+  cowplot::draw_line(x = c(.91, .82, .82), y = c(.65, .53, .17), linetype = "dashed", linewidth = .2)
+ggsave("images/figure2.png", p, w = 183, h = 170, units = "mm", bg = "#FFFFFF")
 

@@ -4,7 +4,7 @@
 #SBATCH -o /dev/null
 
 
-samples=($(ls clean_data))
+#samples=($(ls clean_data))
 samples=($(ls ~/raw_data/songbird2 | sort -V))
 sample=${samples[$SLURM_ARRAY_TASK_ID-1]}
 
@@ -13,7 +13,7 @@ alias bwa="apptainer exec /usr/local/biotools/b/bwa:0.7.17--h5bf99c6_8 bwa"
 alias samtools="apptainer exec /usr/local/biotools/s/samtools:1.18--h50ea8bc_1 samtools"
 
 reference=~/ref/lonStrDom2/GCF_005870125.1.fa
-proj=~/vocal-learning
+proj=~/lonchura
 cd ${proj}
 
 mkdir -p bam/${sample}
